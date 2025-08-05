@@ -44,35 +44,25 @@ func HTTPLogging(log *slog.Logger, h http.Handler) http.Handler {
 type statusInterceptor struct {
 	http.ResponseWriter
 	log    *slog.Logger
-	url    string
 	status int // 0 = не установлен, 1xx = информационные, 2xx-5xx = основной статус
 }
 
 func (si *statusInterceptor) WriteHeader(status int) {
 	switch {
 	case status >= 100 && status < 200:
-		si.log.Debug("informational status",
-			"status", status,
-			"url", si.url)
+		si.log.Debug("informational status", "status", status)
 		si.ResponseWriter.WriteHeader(status)
 
 	case si.status == 0:
 		si.status = status
-		si.log.Debug("response status",
-			"status", status,
-			"url", si.url)
+		si.log.Debug("response status", "status", status)
 		si.ResponseWriter.WriteHeader(status)
 
 	case si.status != status:
-		si.log.Warn("status code conflict",
-			"origStatus", si.status,
-			"newStatus", status,
-			"url", si.url)
+		si.log.Warn("status code conflict", "origStatus", si.status, "newStatus", status)
 
 	default:
-		si.log.Warn("redundant WriteHeader call",
-			"status", status,
-			"url", si.url)
+		si.log.Warn("redundant WriteHeader call", "status", status)
 	}
 }
 
@@ -80,9 +70,7 @@ func (si *statusInterceptor) Write(b []byte) (int, error) {
 	// NOTE: ResponseWriter гарантирует автоматический WriteHeader(200) при необходимости
 	n, err := si.ResponseWriter.Write(b)
 	if err != nil {
-		si.log.Error("write failed",
-			"error", err,
-			"url", si.url)
+		si.log.Error("write failed", "error", err)
 	}
 	return n, err
 }

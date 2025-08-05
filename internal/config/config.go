@@ -33,26 +33,24 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	const required = true
 	var ge getenv
 	cfg := Config{
 		Logger: Logger{
-			Level:     ge.LogLevel("LOG_LEVEL", false, slog.LevelInfo),
-			Plaintext: ge.Bool("LOG_PLAINTEXT", false, false),
+			Level:     ge.LogLevel("LOG_LEVEL", !required, slog.LevelInfo),
+			Plaintext: ge.Bool("LOG_PLAINTEXT", !required, false),
 		},
 		Server: Server{
-			Addr: ge.String("SERVER_ADDR", false, ":8080"),
+			Addr: ge.String("SERVER_ADDR", !required, ":8080"),
 		},
 		Manager: Manager{
-			MaxTotal:  ge.Int("MANAGER_MAX_TOTAL", false, 100500),
-			MaxActive: ge.Int("MANAGER_MAX_ACTIVE", false, 3),
-			MaxFiles:  ge.Int("MANAGER_MAX_FILES", false, 3),
-			TaskTTL:   ge.Duration("MANAGER_TASK_TTL", false, 1*time.Hour),
+			MaxTotal:  ge.Int("MANAGER_MAX_TOTAL", !required, 1000),
+			MaxActive: ge.Int("MANAGER_MAX_ACTIVE", !required, 3),
+			MaxFiles:  ge.Int("MANAGER_MAX_FILES", !required, 3),
+			TaskTTL:   ge.Duration("MANAGER_TASK_TTL", !required, 10*time.Minute),
 		},
 		Loader: Loader{
-			AllowMIMETypes: ge.Strings("LOADER_ALLOW_MIME", false, []string{
-				"application/pdf",
-				"image/jpeg",
-			}),
+			AllowMIMETypes: ge.Strings("LOADER_ALLOW_MIME", required, nil),
 		},
 	}
 	return cfg, ge.Err()

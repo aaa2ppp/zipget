@@ -35,27 +35,25 @@ func IsPrivateIP(ip net.IP) bool {
 
 var ErrSSRF = errors.New("ssrf protection")
 
-func SSRFProtectLookup(host string) (net.IP, error) {
-	// Убираем порт
-	h, _, _ := net.SplitHostPort(host)
-	if h != "" {
-		host = h
-	}
+// ReplaceHostToIP резолвит хост, проверяет ip, возвращает адрес в котором host заменен на ip.
+// Возвращает любые ошибки которые возникаю при разрешении хоста. Если ip локальный, возвращает ошибку ErrSSRF.
+func ReplaceHostToIP(host string) (string, error) {
+	host, port, _ := net.SplitHostPort(host)
 
 	// Резолвим DNS
 	ips, err := net.LookupIP(host)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if len(ips) == 0 {
-		return nil, errors.New("no IP addresses found")
+		return "", errors.New("no IP addresses found")
 	}
 
 	for _, ip := range ips {
 		if IsPrivateIP(ip) {
-			return nil, fmt.Errorf("%w: private IP %s is not allowed", ErrSSRF, ip)
+			return "", fmt.Errorf("%w: private IP %s is not allowed", ErrSSRF, ip)
 		}
 	}
 
-	return ips[0], nil
+	return ips[0].String() + ":" + port, nil
 }

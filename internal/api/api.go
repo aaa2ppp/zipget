@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"2025-07-30/internal/logger"
 	"2025-07-30/internal/model"
 )
 
@@ -32,6 +33,7 @@ func New(manager Manager, apiBasePath, filesBasePath string) *http.ServeMux {
 	mux.HandleFunc("GET " /*****/ +apiBasePath+"/tasks/{id}", GetTaskStatus(manager, filesBasePath))
 	mux.HandleFunc("POST " /****/ +apiBasePath+"/tasks/{id}/files", AddFileToTask(manager))
 	mux.HandleFunc("GET " /*****/ +apiBasePath+"/tasks/{id}/archive", ProcessTask(manager))
+	mux.Handle("GET "+filesBasePath+"/", GetArchive(filesBasePath))
 	return mux
 }
 
@@ -175,19 +177,24 @@ func ProcessTask(m Manager) http.HandlerFunc {
 
 func GetArchive(filesBasePath string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if path.Dir(r.URL.Path) != filesBasePath {
+		log := logger.FromContext(r.Context())
+
+		if dir := path.Dir(r.URL.Path); dir != filesBasePath {
+			log.Debug("invalid dir", "dir", dir)
 			http.NotFound(w, r)
 			return
 		}
 		taskStr := path.Base(r.URL.Path)
 
 		if !strings.HasSuffix(taskStr, ".zip") {
+			log.Debug("must be suffix .zip", "taskStr", taskStr)
 			http.NotFound(w, r)
 			return
 		}
 		taskStr = strings.TrimSuffix(taskStr, ".zip")
 
 		if !strings.HasPrefix(taskStr, "task_") {
+			log.Debug("must be prefix task_", "taskStr", taskStr)
 			http.NotFound(w, r)
 			return
 		}
@@ -195,6 +202,7 @@ func GetArchive(filesBasePath string) http.HandlerFunc {
 
 		taskID, err := strconv.ParseInt(taskStr, 10, 64)
 		if err != nil {
+			log.Debug("can't parse taskID", "taskID", taskStr)
 			http.NotFound(w, r)
 			return
 		}

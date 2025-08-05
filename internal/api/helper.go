@@ -1,8 +1,6 @@
 package api
 
 import (
-	"2025-07-30/internal/logger"
-	"2025-07-30/internal/model"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,14 +9,10 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-)
 
-type helper struct {
-	ctx context.Context
-	log *slog.Logger
-	r   *http.Request
-	w   http.ResponseWriter
-}
+	"2025-07-30/internal/logger"
+	"2025-07-30/internal/model"
+)
 
 type httpError struct {
 	StatusCode int
@@ -27,6 +21,13 @@ type httpError struct {
 
 func (e *httpError) Error() string {
 	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.StatusMsg)
+}
+
+type helper struct {
+	ctx context.Context
+	log *slog.Logger
+	r   *http.Request
+	w   http.ResponseWriter
 }
 
 func newHelper(w http.ResponseWriter, r *http.Request, op string) *helper {

@@ -42,11 +42,7 @@ func main() {
 	manager := manager.New(cfg.Manager, loader)
 	defer manager.Cancel()
 
-	mux := http.NewServeMux()
-	mux.Handle(apiBasePath+"/", api.New(manager, apiBasePath, filesBasePath))
-	mux.Handle("GET"+filesBasePath+"/", api.GetArchive(filesBasePath))
-
-	handler := logger.HTTPLogging(slog.Default(), mux)
+	handler := logger.HTTPLogging(slog.Default(), api.New(manager, apiBasePath, filesBasePath))
 	server := newServer(cfg.Server.Addr, handler)
 
 	done := make(chan int)
@@ -85,12 +81,14 @@ func newHTTPClient() *http.Client {
 	}
 	return &http.Client{
 		Transport: &http.Transport{
+			// SSRF protect
+			// FIXME: это решение "на коленке"
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				ip, err := protect.SSRFProtectLookup(addr)
+				addr, err := protect.ReplaceHostToIP(addr)
 				if err != nil {
 					return nil, err
 				}
-				return dialer.DialContext(ctx, network, ip.String())
+				return dialer.DialContext(ctx, network, addr)
 			},
 			TLSHandshakeTimeout:   10 * time.Second,
 			ResponseHeaderTimeout: 10 * time.Second,

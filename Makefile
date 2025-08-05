@@ -12,8 +12,12 @@ BINARIES := $(patsubst cmd/%,$(BIN_DIR)/%,$(CMDS))
 
 
 # Основная цель - собирает все бинарники
-all: $(BINARIES)
+all: deps $(BINARIES)
 
+# Правило для подготовки зависимостей
+deps:
+	go mod tidy
+	
 # Шаблонное правило для сборки любого бинарника
 $(BIN_DIR)/%: FORCE
 	@mkdir -p $(@D)

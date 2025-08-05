@@ -99,8 +99,6 @@ func (ldr *Loader) Check(ctx context.Context, urls []string) ([]File, error) {
 // Параметры:
 //   - ctx: контекст для отмены и таймаута.
 //   - uri: строка URL для проверки.
-//   - uniqueNum: уникальный номер (например, индекс в списке), используемый для генерации имени файла,
-//     если имя не удалось извлечь из ответа.
 //
 // Возвращает:
 //   - File: структура с заполненными полями URL, Status, ContentType, Size, Name, ErrorMsg.
@@ -112,15 +110,14 @@ func (ldr *Loader) Check(ctx context.Context, urls []string) ([]File, error) {
 // Особенности:
 //   - Тело ответа не читается (HEAD-запрос).
 //   - Если Status не 200, ErrorMsg автоматически заполняется текстом статуса (например, "Not Found").
-//   - Имя файла генерируется через constructFileName, используя расширение по MIME-типу.
 //
 // Пример результата:
 //
 //	File{URL: "http://...", Status: 200, ContentType: "image/jpeg", Size: 10240, Name: "file-1.jpg"}
-func (ldr *Loader) CheckFile(ctx context.Context, uri string) (File, error) {
+func (ldr *Loader) CheckFile(ctx context.Context, uri string) (file File, _ error) {
 	log := logger.FromContext(ctx).With("op", "checkFile", "fileURL", uri)
 
-	file := File{URL: uri}
+	file = File{URL: uri}
 	defer func() {
 		if file.Status != http.StatusOK && file.ErrorMsg == "" {
 			file.ErrorMsg = http.StatusText(file.Status)
@@ -255,10 +252,10 @@ func (ldr *Loader) writeStatus(zw *zip.Writer, files []File) error {
 	return cdr.Encode(files)
 }
 
-func (ldr *Loader) downloadFile(ctx context.Context, zipWriter *zip.Writer, uri string, uniqueNum int) (File, error) {
+func (ldr *Loader) downloadFile(ctx context.Context, zipWriter *zip.Writer, uri string, uniqueNum int) (file File, _ error) {
 	log := logger.FromContext(ctx).With("op", "downloadFile", "fileURL", uri)
 
-	file := File{URL: uri}
+	file = File{URL: uri}
 	defer func() {
 		if file.Status != http.StatusOK && file.ErrorMsg == "" {
 			file.ErrorMsg = http.StatusText(file.Status)
