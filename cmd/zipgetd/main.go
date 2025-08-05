@@ -11,12 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"2025-07-30/internal/api"
-	"2025-07-30/internal/config"
-	"2025-07-30/internal/loader"
-	"2025-07-30/internal/logger"
-	"2025-07-30/internal/manager"
-	"2025-07-30/internal/protect"
+	"zipget/internal/api"
+	"zipget/internal/config"
+	"zipget/internal/loader"
+	"zipget/internal/logger"
+	"zipget/internal/manager"
+	"zipget/internal/protect"
 
 	"github.com/joho/godotenv"
 )

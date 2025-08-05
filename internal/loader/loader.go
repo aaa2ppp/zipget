@@ -11,9 +11,9 @@ import (
 	"net/url"
 	"sync"
 
-	"2025-07-30/internal/logger"
-	"2025-07-30/internal/model"
-	"2025-07-30/internal/protect"
+	"zipget/internal/logger"
+	"zipget/internal/model"
+	"zipget/internal/protect"
 )
 
 const (

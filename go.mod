@@ -1,4 +1,4 @@
-module 2025-07-30
+module zipget
 
 go 1.24.2
 

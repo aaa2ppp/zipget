@@ -12,8 +12,8 @@ import (
 	"os"
 	"strings"
 
-	"2025-07-30/internal/loader"
-	"2025-07-30/internal/model"
+	"zipget/internal/loader"
+	"zipget/internal/model"
 )
 
 var validMIMETypes = []string{"application/pdf", "image/jpeg", "image/png"}

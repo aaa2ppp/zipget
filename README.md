@@ -1,4 +1,4 @@
-# 2025-07-30
+# zipget
 
 ## CLI Utilite
 

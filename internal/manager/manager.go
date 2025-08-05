@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"2025-07-30/internal/config"
-	"2025-07-30/internal/loader"
-	"2025-07-30/internal/model"
+	"zipget/internal/config"
+	"zipget/internal/loader"
+	"zipget/internal/model"
 )
 
 const (

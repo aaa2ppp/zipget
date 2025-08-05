@@ -115,7 +115,7 @@ LOADER_ALLOW_MIME="application/pdf image/jpeg image/png image/gif"
     ],
     "created_at": "2025-07-30T12:00:00Z",
     "updated_at": "2025-07-30T12:01:00Z",
-    "expires_at": "2025-07-30T13:00:00Z"
+    "expires_at": "2025-07-30T12:10:00Z"
   },
   "archive": "/files/task_123.zip"
 }

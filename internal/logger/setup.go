@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"2025-07-30/internal/config"
+	"zipget/internal/config"
 )
 
 func SetupDefault(cfg config.Logger) {

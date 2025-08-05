@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"2025-07-30/internal/logger"
-	"2025-07-30/internal/model"
+	"zipget/internal/logger"
+	"zipget/internal/model"
 )
 
 type httpError struct {
