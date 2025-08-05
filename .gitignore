@@ -3,3 +3,4 @@ tmp/
 bin/
 .env
 *.zip
+zips/
