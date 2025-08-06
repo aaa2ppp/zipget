@@ -37,6 +37,8 @@ func main() {
 
 	logger.SetupDefault(cfg.Logger)
 
+	slog.Debug("server config", "cfg", cfg)
+
 	client := newHTTPClient()
 	loader := loader.New(client, cfg.Loader.AllowMIMETypes)
 	manager := manager.New(cfg.Manager, loader)

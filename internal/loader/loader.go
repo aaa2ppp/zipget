@@ -253,7 +253,7 @@ func (ldr *Loader) writeStatus(zw *zip.Writer, files []File) error {
 }
 
 func (ldr *Loader) downloadFile(ctx context.Context, zipWriter *zip.Writer, uri string, uniqueNum int) (file File, _ error) {
-	log := logger.FromContext(ctx).With("op", "downloadFile", "fileURL", uri)
+	log := logger.FromContext(ctx).With("op", "downloadFile", "fileURL", uri).With("uniqueNum", uniqueNum)
 
 	file = File{URL: uri}
 	defer func() {

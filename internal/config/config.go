@@ -15,10 +15,11 @@ type Server struct {
 }
 
 type Manager struct {
-	MaxTotal  int           // максимальное количество задач
-	MaxActive int           // максимальное количество активных загрузок
-	MaxFiles  int           // максимальное количество URLs на задачу
-	TaskTTL   time.Duration // время жизни задачи
+	MaxTotal     int           // максимальное количество задач
+	MaxActive    int           // максимальное количество активных загрузок
+	MaxFiles     int           // максимальное количество URLs на задачу
+	TaskTTL      time.Duration // время жизни задачи
+	ProcessDelay time.Duration // ТОЛЬКО ДЛЯ ТЕСТОВ, чтобы можно было отследить количество активных задач
 }
 
 type Loader struct {
@@ -44,10 +45,11 @@ func Load() (Config, error) {
 			Addr: ge.String("SERVER_ADDR", !required, ":8080"),
 		},
 		Manager: Manager{
-			MaxTotal:  ge.Int("MANAGER_MAX_TOTAL", !required, 1000),
-			MaxActive: ge.Int("MANAGER_MAX_ACTIVE", !required, 3),
-			MaxFiles:  ge.Int("MANAGER_MAX_FILES", !required, 3),
-			TaskTTL:   ge.Duration("MANAGER_TASK_TTL", !required, 10*time.Minute),
+			MaxTotal:     ge.Int("MANAGER_MAX_TOTAL", !required, 1000),
+			MaxActive:    ge.Int("MANAGER_MAX_ACTIVE", !required, 3),
+			MaxFiles:     ge.Int("MANAGER_MAX_FILES", !required, 3),
+			TaskTTL:      ge.Duration("MANAGER_TASK_TTL", !required, 10*time.Minute),
+			ProcessDelay: ge.Duration("MANAGER_PROCESS_DELAY", !required, 0),
 		},
 		Loader: Loader{
 			AllowMIMETypes: ge.Strings("LOADER_ALLOW_MIME", required, nil),

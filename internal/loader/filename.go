@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	defaultFileName      = "unnamed"
-	maxBaseNameLen       = 100
+	defaultFileName = "unnamed"
+	maxBaseNameLen  = 100
 )
 
 var reservedNames = map[string]bool{
@@ -41,7 +41,6 @@ var reservedNames = map[string]bool{
 //	"file.txt", ".png", 123 -> "file-123.png"
 //	"file<>end", ".png", 0 -> "file-end.png"
 //	"con..txt", ".png", 0 -> "con_.png"
-//
 func constructFileName(fileName string, fileExt string, uniqueNum int) string {
 	if fileName == "" {
 		if uniqueNum > 0 {
@@ -79,7 +78,6 @@ const asciiProblem = `<>:"/\|?*~.;#$%&'(){}[]!` + "`"
 
 // Fullwidth неопасные символы, но вводят в заблуждение
 const fullwidthProblem = "＜＞：＂／＼｜？＊～；＃＄％＆＇（）｛｝［］！"
-
 
 func sanitizeFilename(s string, maxLen int) string {
 	var sb strings.Builder

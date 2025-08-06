@@ -3,6 +3,7 @@ package api
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,8 +34,14 @@ func New(manager Manager, apiBasePath, filesBasePath string) *http.ServeMux {
 	mux.HandleFunc("GET " /*****/ +apiBasePath+"/tasks/{id}", GetTaskStatus(manager, filesBasePath))
 	mux.HandleFunc("POST " /****/ +apiBasePath+"/tasks/{id}/files", AddFileToTask(manager))
 	mux.HandleFunc("GET " /*****/ +apiBasePath+"/tasks/{id}/archive", ProcessTask(manager))
+
 	mux.Handle("GET "+filesBasePath+"/", GetArchive(filesBasePath))
+	mux.Handle(apiBasePath+"/ping", Pong())
 	return mux
+}
+
+func Pong() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) { http.Error(w, "pong", http.StatusOK) }
 }
 
 type createTaskResponse struct {
@@ -163,14 +170,16 @@ func ProcessTask(m Manager) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/zip")
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="task_%d.zip"`, taskID))
-		w.WriteHeader(http.StatusOK)
 
 		bw := bufio.NewWriterSize(w, 64*1024)
 		defer bw.Flush()
 
 		if err := m.ProcessTask(h.Ctx(), taskID, bw); err != nil {
+			if errors.Is(err, model.ErrServerBusy) {
+				h.WriteError(err)
+				return
+			}
 			h.log.Error("process task failed", "error", err)
-			return
 		}
 	}
 }

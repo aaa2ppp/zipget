@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"io"
+	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"slices"
@@ -10,7 +11,7 @@ import (
 	"time"
 
 	"zipget/internal/config"
-	"zipget/internal/loader"
+	"zipget/internal/logger"
 	"zipget/internal/model"
 )
 
@@ -23,6 +24,11 @@ type (
 	File = model.File
 )
 
+type Loader interface {
+	Check(ctx context.Context, urls []string) ([]File, error)
+	Download(ctx context.Context, urls []string, out io.Writer) ([]File, error)
+}
+
 var (
 	ErrTaskNotFound     = model.ErrTaskNotFound
 	ErrMaxFilesExceeded = model.ErrMaxFilesExceeded
@@ -32,7 +38,7 @@ var (
 
 type Manager struct {
 	cfg       config.Manager
-	loader    *loader.Loader
+	loader    Loader
 	mu        sync.RWMutex
 	tasks     map[int64]*model.Task
 	cancel    context.CancelFunc
@@ -41,7 +47,8 @@ type Manager struct {
 	active    int // количество активных загрузок
 }
 
-func New(cfg config.Manager, ldr *loader.Loader) *Manager {
+func New(cfg config.Manager, ldr Loader) *Manager {
+	slog.Debug("new manager", "cfg", cfg)
 	m := &Manager{
 		cfg:    cfg,
 		loader: ldr,
@@ -198,6 +205,12 @@ func (m *Manager) ProcessTask(ctx context.Context, taskID int64, out io.Writer) 
 		return ErrServerBusy
 	}
 	defer m.freeDownloadSlot()
+
+	// ТОЛЬКО ДЛЯ ТЕСТОВ создаем задержку, чтобы можно было отследить активные задачи
+	if m.cfg.ProcessDelay > 0 {
+		logger.FromContext(ctx).Debug("process delay", "delay", m.cfg.ProcessDelay.String())
+		time.Sleep(m.cfg.ProcessDelay)
+	}
 
 	files, err := m.getTaskFiles(taskID)
 	if err != nil {

@@ -1,5 +1,6 @@
 # Определяем директорию для бинарников
 BIN_DIR := bin
+GOEXE := $(shell go env GOEXE)
 
 # Кастомные флаги сборки (можно переопределить при вызове make)
 GO_BUILD_FLAGS ?=
@@ -21,7 +22,11 @@ deps:
 # Шаблонное правило для сборки любого бинарника
 $(BIN_DIR)/%: FORCE
 	@mkdir -p $(@D)
-	go build $(GO_BUILD_FLAGS) -o $@ ./cmd/$(notdir $@)
+	go build $(GO_BUILD_FLAGS) -o $@$(GOEXE) ./cmd/$(notdir $@)
+
+# Запуск интеграционных тестов
+integration-test:
+	WORK_DIR=$(PWD)/tmp/test BIN_FILE=$(PWD)/$(BIN_DIR)/zipgetd$(GOEXE) go test -v ./internal/test/integration_test.go
 
 # Очистка
 clean:
@@ -31,3 +36,4 @@ clean:
 .PHONY: all clean FORCE
 
 FORCE:
+
