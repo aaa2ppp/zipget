@@ -200,9 +200,12 @@ func handleDeleteTask(w http.ResponseWriter, task *Task) {
 	delete(tasks, task.ID)
 	taskMutex.Unlock()
 
-	// Удаляем архив
 	if task.ZipPath != "" {
+		// Удаляем архив
 		os.Remove("./zips/" + task.ZipPath)
+	} else {
+		// Освобождаем слот
+		<-activeSem
 	}
 
 	w.WriteHeader(http.StatusOK)
