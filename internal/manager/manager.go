@@ -4,19 +4,13 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"math/rand/v2"
 	"net/http"
-	"slices"
 	"sync"
 	"time"
 
 	"zipget/internal/config"
 	"zipget/internal/logger"
 	"zipget/internal/model"
-)
-
-const (
-	cleanTimeout = 1 * time.Minute
 )
 
 type (
@@ -29,6 +23,14 @@ type Loader interface {
 	Download(ctx context.Context, urls []string, out io.Writer) ([]File, error)
 }
 
+type Storage interface {
+	CreateTask(ctx context.Context) (int64, error)
+	DeleteTask(ctx context.Context, taskID int64) error
+	AddFileToTask(ctx context.Context, taskID int64, url string) error
+	GetTaskFiles(taskID int64) ([]File, error)
+	UpdateTaskFiles(taskID int64, idxs []int, files []File) (Task, error)
+}
+
 var (
 	ErrTaskNotFound     = model.ErrTaskNotFound
 	ErrMaxFilesExceeded = model.ErrMaxFilesExceeded
@@ -37,125 +39,37 @@ var (
 )
 
 type Manager struct {
-	cfg       config.Manager
-	loader    Loader
-	mu        sync.RWMutex
-	tasks     map[int64]*model.Task
-	cancel    context.CancelFunc
-	cancelled bool
-	muActive  sync.Mutex
-	active    int // количество активных загрузок
+	cfg      config.Manager
+	stor     Storage
+	loader   Loader
+	muActive sync.Mutex
+	active   int // количество активных загрузок
 }
 
-func New(cfg config.Manager, ldr Loader) *Manager {
+func New(cfg config.Manager, stor Storage, ldr Loader) *Manager {
 	slog.Debug("new manager", "cfg", cfg)
 	m := &Manager{
 		cfg:    cfg,
+		stor:   stor,
 		loader: ldr,
-		tasks:  make(map[int64]*model.Task),
 	}
-	m.startTaskCleaner()
 	return m
 }
 
 func (m *Manager) CreateTask(ctx context.Context) (int64, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.cancelled {
-		return 0, ErrServerCancelled
-	}
-
-	if m.cfg.MaxTotal >= 0 && len(m.tasks) >= m.cfg.MaxTotal { // если m.cfg.MaxTotal < 0, то неограничено, если 0 - запрешено
-		return 0, ErrServerBusy
-	}
-
-	id := rand.Int64()
-	m.tasks[id] = &model.Task{
-		ID:        id,
-		Files:     make([]model.File, 0),
-		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(m.cfg.TaskTTL),
-	}
-
-	return id, nil
+	return m.stor.CreateTask(ctx)
 }
 
 func (m *Manager) DeleteTask(ctx context.Context, taskID int64) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.cancelled {
-		return ErrServerCancelled
-	}
-
-	// не проверяем наличие задачи для обеспечения идемпотентности
-	delete(m.tasks, taskID)
-	return nil
+	return m.stor.DeleteTask(ctx, taskID)
 }
 
 func (m *Manager) AddFileToTask(ctx context.Context, taskID int64, url string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.cancelled {
-		return ErrServerCancelled
-	}
-
-	task, exists := m.tasks[taskID]
-	if !exists {
-		return ErrTaskNotFound
-	}
-
-	if m.cfg.MaxFiles >= 0 && len(task.Files) >= m.cfg.MaxFiles { // если m.cfg.MaxFiles < 0, то неограничено, если 0 - запрешено
-		return ErrMaxFilesExceeded
-	}
-
-	task.Files = append(task.Files, File{URL: url})
-	return nil
-}
-
-func (m *Manager) getTaskFiles(taskID int64) ([]File, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	if m.cancelled {
-		return nil, ErrServerCancelled
-	}
-
-	task, exists := m.tasks[taskID]
-	if !exists {
-		return nil, ErrTaskNotFound
-	}
-
-	return slices.Clone(task.Files), nil
-}
-
-func (m *Manager) updateTaskFiles(taskID int64, idxs []int, files []File) (Task, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.cancelled {
-		return Task{}, ErrServerCancelled
-	}
-
-	task, exists := m.tasks[taskID]
-	if !exists {
-		return Task{}, ErrTaskNotFound
-	}
-
-	if len(idxs) > 0 {
-		for i, idx := range idxs {
-			task.Files[idx] = files[i]
-		}
-		task.UpdatedAt = time.Now()
-	}
-
-	return task.Clone(), nil
+	return m.stor.AddFileToTask(ctx, taskID, url)
 }
 
 func (m *Manager) GetTaskStatus(ctx context.Context, taskID int64) (Task, error) {
-	files, err := m.getTaskFiles(taskID)
+	files, err := m.stor.GetTaskFiles(taskID)
 	if err != nil {
 		return Task{}, err
 	}
@@ -179,7 +93,7 @@ func (m *Manager) GetTaskStatus(ctx context.Context, taskID int64) (Task, error)
 		}
 	}
 
-	return m.updateTaskFiles(taskID, idxs, files)
+	return m.stor.UpdateTaskFiles(taskID, idxs, files)
 }
 
 func (m *Manager) getDownloadSlot() bool {
@@ -212,7 +126,7 @@ func (m *Manager) ProcessTask(ctx context.Context, taskID int64, out io.Writer) 
 		time.Sleep(m.cfg.ProcessDelay)
 	}
 
-	files, err := m.getTaskFiles(taskID)
+	files, err := m.stor.GetTaskFiles(taskID)
 	if err != nil {
 		return err
 	}
@@ -235,64 +149,7 @@ func (m *Manager) ProcessTask(ctx context.Context, taskID int64, out io.Writer) 
 	}
 
 	// игнорируем возвращаемые значения (мы свою работу *по загрузке* сделали)
-	_, _ = m.updateTaskFiles(taskID, idxs, files)
+	_, _ = m.stor.UpdateTaskFiles(taskID, idxs, files)
 
 	return nil
-}
-
-func (m *Manager) cleanExpiredTasks() {
-	// FIXME: для перформанса нужно использовать PriorityQueue по ExpiresAt
-
-	var expiredTasks []int64
-	func() {
-		m.mu.RLock()
-		defer m.mu.RUnlock()
-
-		now := time.Now()
-		for _, task := range m.tasks {
-			if task.ExpiresAt.Before(now) {
-				expiredTasks = append(expiredTasks, task.ID)
-			}
-		}
-	}()
-
-	if len(expiredTasks) > 0 {
-		m.mu.Lock()
-		defer m.mu.Unlock()
-
-		for _, taskID := range expiredTasks {
-			delete(m.tasks, taskID)
-		}
-	}
-}
-
-func (m *Manager) startTaskCleaner() {
-	ctx, cancel := context.WithCancel(context.Background())
-	m.cancel = cancel
-
-	go func() {
-		tm := time.NewTimer(cleanTimeout)
-		defer tm.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-tm.C:
-				m.cleanExpiredTasks()
-				tm.Reset(cleanTimeout)
-			}
-		}
-	}()
-}
-
-func (m *Manager) Cancel() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if !m.cancelled {
-		m.cancel()
-		clear(m.tasks)
-		m.cancelled = true
-	}
 }
