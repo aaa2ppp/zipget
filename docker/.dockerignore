@@ -1,0 +1,10 @@
+.git
+.gitignore
+*.log
+tmp/
+bin/
+!bin/app
+*.md
+Makefile
+scripts/
+.env
