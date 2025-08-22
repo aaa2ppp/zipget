@@ -28,7 +28,7 @@ type Storage interface {
 	DeleteTask(ctx context.Context, taskID int64) error
 	AddFileToTask(ctx context.Context, taskID int64, url string) error
 	GetTaskFiles(taskID int64) ([]File, error)
-	UpdateTaskFiles(taskID int64, idxs []int, files []File) (Task, error)
+	UpdateTaskFiles(taskID int64, files []File) (Task, error)
 }
 
 var (
@@ -76,12 +76,13 @@ func (m *Manager) GetTaskStatus(ctx context.Context, taskID int64) (Task, error)
 
 	// составляем список URLs требующих проверки (еще не проверяли или BadGateway на прошлой проверке)
 	urls := make([]string, 0, len(files))
-	idxs := make([]int, 0, len(files))
+	ids := make([]int64, 0, len(files))
 
+	// Запоминае ID
 	for i := range files {
 		if s := files[i].Status; s == 0 || s == http.StatusBadGateway {
 			urls = append(urls, files[i].URL)
-			idxs = append(idxs, i)
+			ids = append(ids, files[i].ID)
 		}
 	}
 
@@ -93,7 +94,12 @@ func (m *Manager) GetTaskStatus(ctx context.Context, taskID int64) (Task, error)
 		}
 	}
 
-	return m.stor.UpdateTaskFiles(taskID, idxs, files)
+	// Востанавливаем ID
+	for i, id := range ids {
+		files[i].ID = id
+	}
+
+	return m.stor.UpdateTaskFiles(taskID, files)
 }
 
 func (m *Manager) getDownloadSlot() bool {
@@ -133,12 +139,13 @@ func (m *Manager) ProcessTask(ctx context.Context, taskID int64, out io.Writer) 
 
 	// составляем список URLs для загрузки (еще не проверяли или OK на прошлой проверке)
 	urls := make([]string, 0, len(files))
-	idxs := make([]int, 0, len(files))
+	ids := make([]int64, 0, len(files))
 
+	// Запоминаем ID
 	for i := range files {
 		if s := files[i].Status; s == 0 || s == http.StatusOK {
 			urls = append(urls, files[i].URL)
-			idxs = append(idxs, i)
+			ids = append(ids, files[i].ID)
 		}
 	}
 
@@ -148,8 +155,13 @@ func (m *Manager) ProcessTask(ctx context.Context, taskID int64, out io.Writer) 
 		return err
 	}
 
+	// Востанавливаем ID
+	for i, id := range ids {
+		files[i].ID = id
+	}
+
 	// игнорируем возвращаемые значения (мы свою работу *по загрузке* сделали)
-	_, _ = m.stor.UpdateTaskFiles(taskID, idxs, files)
+	_, _ = m.stor.UpdateTaskFiles(taskID, files)
 
 	return nil
 }

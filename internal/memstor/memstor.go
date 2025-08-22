@@ -101,8 +101,9 @@ func (m *Memstor) AddFileToTask(ctx context.Context, taskID int64, url string) e
 	if m.cfg.MaxFiles >= 0 && len(task.Files) >= m.cfg.MaxFiles { // если m.cfg.MaxFiles < 0, то неограничено, если 0 - запрешено
 		return ErrMaxFilesExceeded
 	}
-
-	task.Files = append(task.Files, File{URL: url})
+	
+	idx := int64(len(task.Files))
+	task.Files = append(task.Files, File{ID: idx, URL: url})
 	return nil
 }
 
@@ -122,7 +123,7 @@ func (m *Memstor) GetTaskFiles(taskID int64) ([]File, error) {
 	return slices.Clone(task.Files), nil
 }
 
-func (m *Memstor) UpdateTaskFiles(taskID int64, idxs []int, files []File) (Task, error) {
+func (m *Memstor) UpdateTaskFiles(taskID int64, files []File) (Task, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -135,8 +136,9 @@ func (m *Memstor) UpdateTaskFiles(taskID int64, idxs []int, files []File) (Task,
 		return Task{}, ErrTaskNotFound
 	}
 
-	if len(idxs) > 0 {
-		for i, idx := range idxs {
+	if len(files) > 0 {
+		for i := range files {
+			idx := files[i].ID
 			task.Files[idx] = files[i]
 		}
 		task.UpdatedAt = time.Now()
