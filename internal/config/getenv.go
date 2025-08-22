@@ -20,110 +20,85 @@ func (ge *getenv) Err() error {
 	return errors.Join(ge.errs...)
 }
 
+type parseFunc[T any] func(s string) (T, error)
+
+func getValue[T any](key string, required bool, defaultValue T, parse parseFunc[T]) (T, error) {
+	s, ok := os.LookupEnv(key)
+	if !ok || s == "" {
+		if required {
+			var zero T
+			return zero, fmt.Errorf("%s %w", key, ErrEnvRequired)
+		}
+		return defaultValue, nil
+	}
+	return parse(s)
+}
+
 func (ge *getenv) String(key string, required bool, defaultValue string) string {
-	if s, ok := os.LookupEnv(key); ok {
-		return s
+	v, err := getValue(key, required, defaultValue, func(s string) (string, error) {
+		return s, nil
+	})
+	if err != nil {
+		ge.errs = append(ge.errs, err)
 	}
-
-	if required {
-		ge.errs = append(ge.errs, fmt.Errorf("%s %w", key, ErrEnvRequired))
-		return ""
-	}
-
-	return defaultValue
+	return v
 }
 
 func (ge *getenv) Strings(key string, required bool, defaultValue []string) []string {
-	if s, ok := os.LookupEnv(key); ok {
-		return strings.Fields(s)
+	v, err := getValue(key, required, defaultValue, func(s string) ([]string, error) {
+		return strings.Fields(s), nil
+	})
+	if err != nil {
+		ge.errs = append(ge.errs, err)
 	}
-
-	if required {
-		ge.errs = append(ge.errs, fmt.Errorf("%s %w", key, ErrEnvRequired))
-		return nil
-	}
-
-	return defaultValue
+	return v
 }
 
 func (ge *getenv) Int(key string, required bool, defaultValue int) int {
-	if s, ok := os.LookupEnv(key); ok {
-		v, err := strconv.Atoi(s)
-		if err != nil {
-			ge.errs = append(ge.errs, err)
-			return 0
-		}
-		return v
+	v, err := getValue(key, required, defaultValue, func(s string) (int, error) {
+		return strconv.Atoi(s)
+	})
+	if err != nil {
+		ge.errs = append(ge.errs, err)
 	}
-
-	if required {
-		ge.errs = append(ge.errs, fmt.Errorf("%s %w", key, ErrEnvRequired))
-		return 0
-	}
-
-	return defaultValue
+	return v
 }
 
 func (ge *getenv) LogLevel(key string, required bool, defaultValue slog.Level) slog.Level {
-	if s, ok := os.LookupEnv(key); ok {
+	v, err := getValue(key, required, defaultValue, func(s string) (slog.Level, error) {
 		var v slog.Level
-		if err := v.UnmarshalText([]byte(s)); err != nil {
-			ge.errs = append(ge.errs, err)
-			return 0
-		}
-		return v
+		err := v.UnmarshalText([]byte(s))
+		return v, err
+	})
+	if err != nil {
+		ge.errs = append(ge.errs, err)
 	}
-
-	if required {
-		ge.errs = append(ge.errs, fmt.Errorf("%s %w", key, ErrEnvRequired))
-		return 0
-	}
-
-	return defaultValue
+	return v
 }
 
 func (ge *getenv) Bool(key string, required bool, defaultValue bool) bool {
-	if s, ok := os.LookupEnv(key); ok {
-
+	v, err := getValue(key, required, defaultValue, func(s string) (bool, error) {
 		switch strings.ToLower(s) {
 		case "true", "yes", "on", "1":
-			return true
+			return true, nil
 		case "false", "no", "off", "0":
-			return false
+			return false, nil
 		default:
-			msg := fmt.Sprintf("%s=%s env is ignored. Want value: true/false, yes/no, on/off or 1/0", key, s)
-			if required {
-				ge.errs = append(ge.errs, errors.New(msg))
-			} else {
-				slog.Error(msg)
-			}
-			return false
+			return false, fmt.Errorf("invalid boolean value %q for %q, want: true/false, yes/no, on/off, 1/0", s, key)
 		}
-
+	})
+	if err != nil {
+		ge.errs = append(ge.errs, err)
 	}
-
-	if required {
-		ge.errs = append(ge.errs, fmt.Errorf("%s %w", key, ErrEnvRequired))
-		return false
-	}
-
-	return defaultValue
+	return v
 }
 
 func (ge *getenv) Duration(key string, required bool, defaultValue time.Duration) time.Duration {
-	if s, ok := os.LookupEnv(key); ok {
-		v, err := time.ParseDuration(s)
-		if err != nil {
-			ge.errs = append(ge.errs, err)
-			return 0
-		}
-		return v
+	v, err := getValue(key, required, defaultValue, func(s string) (time.Duration, error) {
+		return time.ParseDuration(s)
+	})
+	if err != nil {
+		ge.errs = append(ge.errs, err)
 	}
-
-	if required {
-		ge.errs = append(ge.errs, fmt.Errorf("%s %w", key, ErrEnvRequired))
-		return 0
-	}
-
-	return defaultValue
+	return v
 }

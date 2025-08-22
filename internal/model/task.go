@@ -13,6 +13,8 @@ type Task struct {
 	ExpiresAt time.Time `json:"expires_at,omitzero"`
 }
 
+// Clone создает полную копию задачи, включая глубокое копирование слайса Files.
+// Нужен для безопасного возврата состояния задачи без риска изменения внутреннего состояния хранилища.
 func (t Task) Clone() Task {
 	return Task{
 		ID:        t.ID,

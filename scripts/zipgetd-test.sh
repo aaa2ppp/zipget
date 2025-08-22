@@ -1,5 +1,7 @@
 #/bin/sh
 
+port=${1:-8080}
+
 LANG=ru_RU.UTF-8
 
 file1='https://informburo.kz/storage/photos/94/main/Oh38ooVAU32ULU9c7rdUWZU2QoP4ojmlHrabANpL.jpg'
@@ -14,41 +16,42 @@ mkdir -p "$tmp_dir" || exit 1
 curl="curl -fsS"
 
 echo "== Создаём задачу" >&2
-TASK_ID=$($curl -X POST http://localhost:8080/api/tasks | jq -r '.task_id')
+TASK_ID=$($curl -X POST http://localhost:${port}/api/tasks | jq -r '.task_id')
 echo "TASK_ID: $TASK_ID"
 
 echo "== Добавляем файлы" >&2
 # NOTE: на MINGW если предавать тело через параметр, портится кириллица, потому через stdin
 
 jq -n --arg url "$file1" '{url: $url}' |
-$curl -X POST -H "Content-Type: application/json" --data-binary @- http://localhost:8080/api/tasks/"$TASK_ID"/files
+$curl -X POST -H "Content-Type: application/json" --data-binary @- http://localhost:$port/api/tasks/"$TASK_ID"/files
 
 jq -n --arg url "$file2" '{url: $url}' |
-$curl -X POST -H "Content-Type: application/json" --data-binary @- http://localhost:8080/api/tasks/"$TASK_ID"/files
+$curl -X POST -H "Content-Type: application/json" --data-binary @- http://localhost:$port/api/tasks/"$TASK_ID"/files
 
 jq -n --arg url "$file3" '{url: $url}' |
-$curl -X POST -H "Content-Type: application/json" --data-binary @- http://localhost:8080/api/tasks/"$TASK_ID"/files
+$curl -X POST -H "Content-Type: application/json" --data-binary @- http://localhost:$port/api/tasks/"$TASK_ID"/files
 
+echo "== Привышение лимита" >&2
 jq -n --arg url "$file4" '{url: $url}' |
-$curl -X POST -H "Content-Type: application/json" --data-binary @- http://localhost:8080/api/tasks/"$TASK_ID"/files
+$curl -X POST -H "Content-Type: application/json" --data-binary @- http://localhost:$port/api/tasks/"$TASK_ID"/files
 
 echo "== Получаем статус (с ссылкой на архив)" >&2
-$curl http://localhost:8080/api/tasks/"$TASK_ID" | jq
+$curl http://localhost:$port/api/tasks/"$TASK_ID" | jq
 
 echo "== Скачиваем архив" >&2
 (
     mkdir -p "$tmp_dir/api" && cd "$tmp_dir/api" && \
-    $curl -OJ http://localhost:8080/api/tasks/"$TASK_ID"/archive
+    $curl -OJ http://localhost:$port/api/tasks/"$TASK_ID"/archive
 )
 
 echo "== Скачиваем архив по прямой ссылке" >&2
 (
     mkdir -p "$tmp_dir/files" && cd "$tmp_dir/files" && \
-    $curl -L -OJ http://localhost:8080/files/task_"$TASK_ID".zip
+    $curl -L -OJ http://localhost:$port/files/task_"$TASK_ID".zip
 )
 
 echo "== Удаляем задачу" >&2
-$curl -X DELETE http://localhost:8080/api/tasks/"$TASK_ID"
+$curl -X DELETE http://localhost:$port/api/tasks/"$TASK_ID"
 
 echo "== Проверяем, что задачи нет" >&2
-$curl http://localhost:8080/api/tasks/"$TASK_ID" | jq
+$curl http://localhost:$port/api/tasks/"$TASK_ID" | jq

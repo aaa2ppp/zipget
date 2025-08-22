@@ -16,6 +16,7 @@ import (
 	"zipget/internal/loader"
 	"zipget/internal/logger"
 	"zipget/internal/manager"
+	"zipget/internal/memstor"
 	"zipget/internal/protect"
 
 	"github.com/joho/godotenv"
@@ -40,9 +41,14 @@ func main() {
 	slog.Debug("server config", "cfg", cfg)
 
 	client := newHTTPClient()
+	stor := memstor.New(memstor.Config{
+		MaxTotal: cfg.Manager.MaxTotal,
+		MaxFiles: cfg.Manager.MaxFiles,
+		TaskTTL:  cfg.Manager.TaskTTL,
+	})
+	defer stor.Cancel()
 	loader := loader.New(client, cfg.Loader.AllowMIMETypes)
-	manager := manager.New(cfg.Manager, loader)
-	defer manager.Cancel()
+	manager := manager.New(cfg.Manager, stor, loader)
 
 	handler := logger.HTTPLogging(slog.Default(), api.New(manager, apiBasePath, filesBasePath))
 	server := newServer(cfg.Server.Addr, handler)
@@ -58,7 +64,6 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 
-		manager.Cancel()
 		if err := server.Shutdown(ctx); err != nil {
 			slog.Error("sutdown failed", "error", err)
 		}
